@@ -1,6 +1,5 @@
 """Model and kwargs data mappings for testing."""
 
-from rdfproxy import instantiate_model_from_kwargs
 from tests.data.models import ComplexModel, NestedModel, SimpleModel
 
 
