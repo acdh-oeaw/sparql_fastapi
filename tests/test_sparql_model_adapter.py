@@ -7,7 +7,7 @@ from tests.data.models import ComplexModel
 
 
 @pytest.mark.remote
-def test_sparql_model_adapter_basic(wikidata_wrapper):
+def test_sparql_model_adapter_basic():
     """Simple base test for SPARQLModelAdapter."""
     query = """
     select ?x ?y ?a ?p
@@ -17,8 +17,10 @@ def test_sparql_model_adapter_basic(wikidata_wrapper):
         }
     }
     """
-    wikidata_wrapper.setQuery(query)
-    adapter = SPARQLModelAdapter(sparql_wrapper=wikidata_wrapper)
-    model, *_ = adapter(query=query, model_constructor=ComplexModel)
+    adapter = SPARQLModelAdapter(
+        endpoint="https://query.wikidata.org/bigdata/namespace/wdq/sparql",
+        query=query,
+        model=ComplexModel,
+    )
 
-    assert isinstance(model, ComplexModel)
+    assert all(isinstance(model, ComplexModel) for model in adapter.query())

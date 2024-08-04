@@ -1,7 +1,8 @@
 """SPARQLModelAdapter class for QueryResult to Pydantic model conversions."""
 
-from collections.abc import Iterable
-from typing import cast
+from collections import defaultdict
+from collections.abc import Iterable, Iterator
+from typing import Any, cast, overload
 
 from SPARQLWrapper import JSON, QueryResult, SPARQLWrapper
 from pydantic import BaseModel
@@ -36,9 +37,6 @@ class SPARQLModelAdapter:
             p: str
             q: NestedModel
 
-
-        sparql_wrapper = SPARQLWrapper("https://query.wikidata.org/bigdata/namespace/wdq/sparql")
-
         query = '''
             select ?x ?y ?a ?p
             where {
@@ -48,40 +46,44 @@ class SPARQLModelAdapter:
             }
         '''
 
-        adapter = SPARQLModelAdapter(sparql_wrapper=sparql_wrapper)
-        models: list[_TModelInstance] = adapter(query=query, model_constructor=ComplexModel)
+        adapter = SPARQLModelAdapter(
+            endpoint="https://query.wikidata.org/bigdata/namespace/wdq/sparql",
+            query=query,
+            model=ComplexModel,
+        )
+
+        models: Iterator[_TModelInstance] = adapter.query()
     """
 
-    def __init__(self, sparql_wrapper: SPARQLWrapper) -> None:
-        self.sparql_wrapper = sparql_wrapper
+    def __init__(self, endpoint: str, query: str, model: type[_TModelInstance]) -> None:
+        self._endpoint = endpoint
+        self._query = query
+        self._model = model
 
-        if self.sparql_wrapper.returnFormat != "json":
-            self.sparql_wrapper.setReturnFormat(JSON)
+        self.sparql_wrapper = self._init_sparql_wrapper()
 
-    def __call__(
-        self,
-        query: str,
-        model_constructor: type[_TModelInstance] | _TModelConstructorCallable,
-    ) -> Iterable[_TModelInstance]:
-        self.sparql_wrapper.setQuery(query)
+    def _init_sparql_wrapper(self) -> SPARQLWrapper:
+        """Initialize a SPARQLWrapper object."""
+        sparql_wrapper = SPARQLWrapper(self._endpoint)
+        sparql_wrapper.setQuery(self._query)
+        sparql_wrapper.setReturnFormat(JSON)
+
+        return sparql_wrapper
+
+    def _run_query(self) -> Iterator[tuple[BaseModel, dict[str, Any]]]:
+        """Run the intially defined query against the endpoint using SPARQLWrapper.
+
+        Model instances are coupled with flat SPARQL result bindings;
+        this allows for easier and more efficient grouping operations (see query_group_by).
+        """
         query_result: QueryResult = self.sparql_wrapper.query()
+        _bindings = get_bindings_from_query_result(query_result)
 
-        if isinstance(model_constructor, type(BaseModel)):
-            model_constructor = cast(type[_TModelInstance], model_constructor)
+        for bindings in _bindings:
+            model = instantiate_model_from_kwargs(self._model, **bindings)
+            yield model, bindings
 
-            bindings = get_bindings_from_query_result(query_result)
-            models: list[_TModelInstance] = [
-                instantiate_model_from_kwargs(model_constructor, **binding)
-                for binding in bindings
-            ]
-
-        elif isinstance(model_constructor, _TModelConstructorCallable):
-            models: Iterable[_TModelInstance] = model_constructor(query_result)
-
-        else:
-            raise TypeError(
-                "Argument 'model_constructor' must be a model class "
-                "or a model constructor callable."
-            )
-
-        return models
+    def query(self) -> Iterator[BaseModel]:
+        """Run query against endpoint, map SPARQL result sets to model and return model instances."""
+        for model, _ in self._run_query():
+            yield model
