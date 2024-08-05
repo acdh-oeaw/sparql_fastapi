@@ -74,7 +74,7 @@ class SPARQLModelAdapter(Generic[_TModelInstance]):
         return sparql_wrapper
 
     def _run_query(self) -> Iterator[tuple[_TModelInstance, dict[str, Any]]]:
-        """Run the intially defined query against the endpoint using SPARQLWrapper.
+        """Run the initially defined query against the endpoint using SPARQLWrapper.
 
         Model instances are coupled with flat SPARQL result bindings;
         this allows for easier and more efficient grouping operations (see query_group_by).
@@ -91,33 +91,7 @@ class SPARQLModelAdapter(Generic[_TModelInstance]):
         return [model for model, _ in self._run_query()]
 
     def query_group_by(self, group_by: str) -> dict[str, list[_TModelInstance]]:
-        """Run query against endpoint and group results by a SPARQL binding.
-
-        Example:
-
-            from models import ComplexModel
-            from rdfproxy import SPARQLModelAdapter, _TModelInstance
-
-            query = '''
-                select ?x ?y ?a ?p
-                where {
-                    values (?x ?y ?a ?p) {
-                        (1 2 "a value" "p value")
-                        (1 3 "another value" "p value 2")
-                        (2 4 "yet anoter value" "p value 3")
-                    }
-                }
-            '''
-
-            adapter = SPARQLModelAdapter(
-                endpoint="https://query.wikidata.org/bigdata/namespace/wdq/sparql",
-                query=query,
-                model=ComplexModel,
-        )
-
-            grouped: dict[str, list[ComplexModel]] = adapter.query_group_by("x")
-            assert len(grouped["1"]) == 2  # True
-        """
+        """Run query against endpoint and group results by a SPARQL binding."""
         group = defaultdict(list)
 
         for model, bindings in self._run_query():
