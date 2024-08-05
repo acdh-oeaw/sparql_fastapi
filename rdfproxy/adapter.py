@@ -8,6 +8,7 @@ from typing import Generic
 from SPARQLWrapper import JSON, QueryResult, SPARQLWrapper
 from rdfproxy.utils._exceptions import UndefinedBindingException
 from rdfproxy.utils._types import _TModelInstance
+from rdfproxy.utils.models import Page
 from rdfproxy.utils.sparql_templates import ungrouped_pagination_base_query
 from rdfproxy.utils.utils import (
     get_bindings_from_query_result,
@@ -143,7 +144,7 @@ class SPARQLModelAdapter(Generic[_TModelInstance]):
             case _:
                 return size * page
 
-    def _query_paginate_ungrouped(self, page: int, size: int) -> list[_TModelInstance]:
+    def _query_paginate_ungrouped(self, page: int, size: int) -> Page[_TModelInstance]:
         """Run query with pagination according to page and size.
 
         This method is intended to be part of the public SPARQLModelAdapter.query_paginate method.
@@ -157,12 +158,14 @@ class SPARQLModelAdapter(Generic[_TModelInstance]):
 
         with temporary_query_override(self.sparql_wrapper):
             self.sparql_wrapper.setQuery(paginated_query)
-            return self.query()
+            items: list[_TModelInstance] = self.query()
+
+            return Page(items=items, page=page, size=size)
 
     @overload
     def query_paginate(
         self, page: int, size: int, group_by: None = None
-    ) -> list[_TModelInstance]: ...
+    ) -> Page[_TModelInstance]: ...
 
     @overload
     def query_paginate(
@@ -171,7 +174,7 @@ class SPARQLModelAdapter(Generic[_TModelInstance]):
 
     def query_paginate(
         self, page: int, size: int, group_by: str | None = None
-    ) -> list[_TModelInstance] | dict[str, list[_TModelInstance]]:
+    ) -> Page[_TModelInstance] | dict[str, list[_TModelInstance]]:
         """Run query with pagination according to page and size and optional grouping."""
         if group_by is None:
             return self._query_paginate_ungrouped(page=page, size=size)
