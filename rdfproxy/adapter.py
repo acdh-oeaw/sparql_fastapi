@@ -3,9 +3,9 @@
 from collections import defaultdict
 from collections.abc import Iterator
 from typing import Any, overload
+from typing import Generic
 
 from SPARQLWrapper import JSON, QueryResult, SPARQLWrapper
-from pydantic import BaseModel
 from rdfproxy.utils._exceptions import UndefinedBindingException
 from rdfproxy.utils._types import _TModelInstance
 from rdfproxy.utils.sparql_templates import ungrouped_pagination_base_query
@@ -16,7 +16,7 @@ from rdfproxy.utils.utils import (
 )
 
 
-class SPARQLModelAdapter:
+class SPARQLModelAdapter(Generic[_TModelInstance]):
     """Adapter/Mapper for QueryResult to Pydantic model conversions.
 
     The rdfproxy.SPARQLModelAdapter class allows to run a query against an endpoint
@@ -54,7 +54,7 @@ class SPARQLModelAdapter:
             model=ComplexModel,
         )
 
-        models: Iterator[_TModelInstance] = adapter.query()
+        models: Iterator[ComplexModel] = adapter.query()
     """
 
     def __init__(self, endpoint: str, query: str, model: type[_TModelInstance]) -> None:
@@ -72,7 +72,7 @@ class SPARQLModelAdapter:
 
         return sparql_wrapper
 
-    def _run_query(self) -> Iterator[tuple[BaseModel, dict[str, Any]]]:
+    def _run_query(self) -> Iterator[tuple[_TModelInstance, dict[str, Any]]]:
         """Run the intially defined query against the endpoint using SPARQLWrapper.
 
         Model instances are coupled with flat SPARQL result bindings;
@@ -85,12 +85,12 @@ class SPARQLModelAdapter:
             model = instantiate_model_from_kwargs(self._model, **bindings)
             yield model, bindings
 
-    def query(self) -> list[BaseModel]:
+    def query(self) -> list[_TModelInstance]:
         """Run query against endpoint, map SPARQL result sets to model and return model instances."""
         return [model for model, _ in self._run_query()]
 
-    def query_group_by(self, group_by: str) -> dict[str, list[BaseModel]]:
-        """Run query against endpoint like SPARQLModelAdapter.query but group results by a SPARQL binding.
+    def query_group_by(self, group_by: str) -> dict[str, list[_TModelInstance]]:
+        """Run query against endpoint and group results by a SPARQL binding.
 
         Example:
 
@@ -114,7 +114,7 @@ class SPARQLModelAdapter:
                 model=ComplexModel,
         )
 
-            grouped: dict[str, list[BaseModel]] = adapter.query_group_by("x")
+            grouped: dict[str, list[ComplexModel]] = adapter.query_group_by("x")
             assert len(grouped["1"]) == 2  # True
         """
         group = defaultdict(list)
@@ -143,7 +143,7 @@ class SPARQLModelAdapter:
             case _:
                 return size * page
 
-    def _query_paginate_ungrouped(self, page: int, size: int):
+    def _query_paginate_ungrouped(self, page: int, size: int) -> list[_TModelInstance]:
         """Run query with pagination according to page and size.
 
         This method is intended to be part of the public SPARQLModelAdapter.query_paginate method.
@@ -162,16 +162,16 @@ class SPARQLModelAdapter:
     @overload
     def query_paginate(
         self, page: int, size: int, group_by: None = None
-    ) -> list[BaseModel]: ...
+    ) -> list[_TModelInstance]: ...
 
     @overload
     def query_paginate(
         self, page: int, size: int, group_by: str
-    ) -> dict[str, list[BaseModel]]: ...
+    ) -> dict[str, list[_TModelInstance]]: ...
 
     def query_paginate(
         self, page: int, size: int, group_by: str | None = None
-    ) -> list[BaseModel] | dict[str, list[BaseModel]]:
+    ) -> list[_TModelInstance] | dict[str, list[_TModelInstance]]:
         """Run query with pagination according to page and size and optional grouping."""
         if group_by is None:
             return self._query_paginate_ungrouped(page=page, size=size)
