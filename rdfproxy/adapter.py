@@ -149,16 +149,17 @@ class SPARQLModelAdapter(Generic[_TModelInstance]):
     def _query_paginate_grouped(
         self, page: int, size: int, group_by: str
     ) -> Page[_TModelInstance]:
-        grouped_pagination_query = construct_grouped_pagination_query(
+        grouped_paginated_query = construct_grouped_pagination_query(
             query=self._query, page=page, size=size, group_by=group_by
         )
         grouped_count_query = construct_grouped_count_query(
             query=self._query, group_by=group_by
         )
 
-        items = self.query_group_by(group_by=group_by, query=grouped_pagination_query)
+        items = self.query_group_by(group_by=group_by, query=grouped_paginated_query)
         total = self._get_count(grouped_count_query)
         pages = math.ceil(total / size)
+
         return Page(items=items, page=page, size=size, total=total, pages=pages)
 
     def query_paginate(
