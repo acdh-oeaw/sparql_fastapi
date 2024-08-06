@@ -78,10 +78,13 @@ class SPARQLModelAdapter(Generic[_TModelInstance]):
     def _run_query(
         self, query: str | None = None
     ) -> Iterator[tuple[_TModelInstance, dict[str, Any]]]:
-        """Run the initially defined query against the endpoint using SPARQLWrapper.
+        """Run query, construct model instances and generate a model-bindings mapping.
 
-        Model instances are coupled with flat SPARQL result bindings;
-        this allows for easier and more efficient grouping operations (see query_group_by).
+        Query defaults to the initially defined query
+        and is run against the endpoint defined in the SPARQLModelAdapter instance.
+
+        The coupling of model instances with flat SPARQL results
+        allows for easier and more efficient grouping operations (see grouping functionality).
         """
         if query is None:
             query_result: QueryResult = self.sparql_wrapper.query()
@@ -97,7 +100,7 @@ class SPARQLModelAdapter(Generic[_TModelInstance]):
             yield model, bindings
 
     def query(self, query: str | None = None) -> list[_TModelInstance]:
-        """Run query against endpoint, map SPARQL result sets to model and return model instances."""
+        """Run query against endpoint and collect model instances."""
         return [model for model, _ in self._run_query(query=query)]
 
     def query_group_by(
