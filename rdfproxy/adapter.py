@@ -2,6 +2,8 @@
 
 from collections import defaultdict
 from collections.abc import Iterator
+import math
+import re
 from typing import Any, overload
 from typing import Generic
 
@@ -9,7 +11,8 @@ from SPARQLWrapper import JSON, QueryResult, SPARQLWrapper
 from rdfproxy.utils._exceptions import UndefinedBindingException
 from rdfproxy.utils._types import _TModelInstance
 from rdfproxy.utils.models import Page
-from rdfproxy.utils.sparql_templates import ungrouped_pagination_base_query
+from rdfproxy.utils.sparql.sparql_templates import ungrouped_pagination_base_query
+from rdfproxy.utils.sparql.sparql_utils import calculate_offset, construct_count_query
 from rdfproxy.utils.utils import (
     get_bindings_from_query_result,
     instantiate_model_from_kwargs,
@@ -107,16 +110,15 @@ class SPARQLModelAdapter(Generic[_TModelInstance]):
 
         return group
 
-    @staticmethod
-    def _calculate_offset(page: int, size: int) -> int:
-        """Calculate offset value for paginated SPARQL templates."""
-        match page:
-            case 1:
-                return 0
-            case 2:
-                return size
-            case _:
-                return size * page
+    def _get_count(self) -> int:
+        """Construct a count query from the initialized query, run it and return the count result."""
+        count_query = construct_count_query(self.sparql_wrapper.queryString)
+
+        with temporary_query_override(self.sparql_wrapper):
+            self.sparql_wrapper.setQuery(count_query)
+            result = get_bindings_from_query_result(self.sparql_wrapper.query())
+
+        return int(next(result)["cnt"])
 
     def _query_paginate_ungrouped(self, page: int, size: int) -> Page[_TModelInstance]:
         """Run query with pagination according to page and size.
@@ -127,14 +129,17 @@ class SPARQLModelAdapter(Generic[_TModelInstance]):
         and run with SPARQLModelAdapter.query.
         """
         paginated_query = ungrouped_pagination_base_query.substitute(
-            query=self._query, offset=self._calculate_offset(page, size), limit=size
+            query=self._query, offset=calculate_offset(page, size), limit=size
         )
+
+        total = self._get_count()
+        pages = math.ceil(total / size)
 
         with temporary_query_override(self.sparql_wrapper):
             self.sparql_wrapper.setQuery(paginated_query)
             items: list[_TModelInstance] = self.query()
 
-            return Page(items=items, page=page, size=size)
+        return Page(items=items, page=page, size=size, total=total, pages=pages)
 
     @overload
     def query_paginate(
