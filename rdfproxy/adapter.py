@@ -8,7 +8,10 @@ from typing import Any, Generic, overload
 from typeguard import typechecked
 
 from SPARQLWrapper import QueryResult
-from rdfproxy.utils._exceptions import UndefinedBindingException
+from rdfproxy.utils._exceptions import (
+    InterdependentParametersException,
+    UndefinedBindingException,
+)
 from rdfproxy.utils._types import _TModelInstance
 from rdfproxy.utils.models import Page
 from rdfproxy.utils.sparql.sparql_templates import ungrouped_pagination_base_query
@@ -214,6 +217,8 @@ class SPARQLModelAdapter(Generic[_TModelInstance]):
                     page=page, size=size, group_by=group_by
                 )
             case None, int(), Any() | int(), None, Any():
-                raise Exception("Parameters 'page' and 'size' are mutually dependent.")
+                raise InterdependentParametersException(
+                    "Parameters 'page' and 'size' are mutually dependent."
+                )
             case _:
                 raise Exception("This should never happen.")
