@@ -29,7 +29,7 @@ def inject_subquery(query: str, subquery: str) -> str:
 
 
 def replace_query_select_clause(query: str, repl: str) -> str:
-    """eplace the SELECT clause of a query with with repl."""
+    """Replace the SELECT clause of a query with repl."""
     if re.search(r"select\s.+", query, re.I) is None:
         raise Exception("Unable to obtain SELECT clause.")
 
@@ -64,6 +64,12 @@ def calculate_offset(page: int, size: int) -> int:
 def construct_grouped_pagination_query(
     query: str, page: int, size: int, group_by: str
 ) -> str:
+    """Dynamically construct a query for grouped pagination.
+
+    Based on the initial query, construct a query with limit/offset according to page/size
+    and with a SELECT clause that distinctly selects the group_by variable;
+    then inject that query into the initial query as a subquery.
+    """
     _paginated_query = ungrouped_pagination_base_query.substitute(
         query=query, offset=calculate_offset(page, size), limit=size
     )

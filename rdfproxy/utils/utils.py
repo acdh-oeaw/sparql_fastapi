@@ -31,6 +31,9 @@ def instantiate_model_from_kwargs(
 ) -> _TModelInstance:
     """Instantiate a (potentially nested) model from (flat) kwargs.
 
+    More a more generic version of this function see upto.init_model_from_kwargs
+    https://github.com/lu-pl/upto?tab=readme-ov-file#init_model_from_kwargs.
+
     Example:
 
         class SimpleModel(BaseModel):
