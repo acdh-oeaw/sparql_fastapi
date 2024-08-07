@@ -216,7 +216,7 @@ class SPARQLModelAdapter(Generic[_TModelInstance]):
                 return self._query_paginate_grouped(
                     page=page, size=size, group_by=group_by
                 )
-            case None, int(), Any() | int(), None, Any():
+            case (None, int(), Any()) | (int(), None, Any()):
                 raise InterdependentParametersException(
                     "Parameters 'page' and 'size' are mutually dependent."
                 )
