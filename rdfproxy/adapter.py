@@ -1,4 +1,4 @@
-"""SPARQLModelAdapter class for QueryResult to Pydantic model conversions."""
+"""SPARQLModelAdapter class for SPARQL query result set to Pydantic model conversions."""
 
 from collections import defaultdict
 from collections.abc import Iterator
@@ -32,44 +32,11 @@ from rdfproxy.utils.utils import (
 
 @typechecked
 class SPARQLModelAdapter(Generic[_TModelInstance]):
-    """Adapter/Mapper for QueryResult to Pydantic model conversions.
+    """Adapter/Mapper for SPARQL query result set to Pydantic model conversions.
 
-    The rdfproxy.SPARQLModelAdapter class allows to run a query against an endpoint
-    and map a flat SPARQL query result set to a potentially nested Pydantic model.
-
-    Example:
-
-        from pydantic import BaseModel
-        from rdfproxy import SPARQLModelAdapter, _TModelInstance
-
-        class SimpleModel(BaseModel):
-            x: int
-            y: int
-
-        class NestedModel(BaseModel):
-            a: str
-            b: SimpleModel
-
-        class ComplexModel(BaseModel):
-            p: str
-            q: NestedModel
-
-        query = '''
-            select ?x ?y ?a ?p
-            where {
-                values (?x ?y ?a ?p) {
-                    (1 2 "a value" "p value")
-                }
-            }
-        '''
-
-        adapter = SPARQLModelAdapter(
-            endpoint="https://query.wikidata.org/bigdata/namespace/wdq/sparql",
-            query=query,
-            model=ComplexModel,
-        )
-
-        models: Iterator[ComplexModel] = adapter.query()
+    The rdfproxy.SPARQLModelAdapter class allows to run a query against an endpoint,
+    map a flat SPARQL query result set to a potentially nested Pydantic model and
+    optionally paginate and/or group the results by a SPARQL binding.
     """
 
     def __init__(self, endpoint: str, query: str, model: type[_TModelInstance]) -> None:
@@ -84,10 +51,10 @@ class SPARQLModelAdapter(Generic[_TModelInstance]):
     ) -> Iterator[tuple[_TModelInstance, dict[str, Any]]]:
         """Run query, construct model instances and generate a model-bindings mapping.
 
-        Query defaults to the initially defined query
-        and is run against the endpoint defined in the SPARQLModelAdapter instance.
+        The query parameter defaults to the initially defined query and
+        is run against the endpoint defined in the SPARQLModelAdapter instance.
 
-        The coupling of model instances with flat SPARQL results
+        Note: The coupling of model instances with flat SPARQL results
         allows for easier and more efficient grouping operations (see grouping functionality).
         """
         if query is None:
@@ -137,9 +104,7 @@ class SPARQLModelAdapter(Generic[_TModelInstance]):
     def _query_paginate_ungrouped(self, page: int, size: int) -> Page[_TModelInstance]:
         """Run query with pagination according to page and size.
 
-        This method is intended to be part of the public SPARQLModelAdapter.query_paginate method.
-
-        The internal query is dynamically modified according to page/offset and size/limit
+        The internal query is dynamically modified according to page (offset)/size (limit)
         and run with SPARQLModelAdapter._query_collect_models.
         """
         paginated_query = ungrouped_pagination_base_query.substitute(
@@ -156,6 +121,11 @@ class SPARQLModelAdapter(Generic[_TModelInstance]):
     def _query_paginate_grouped(
         self, page: int, size: int, group_by: str
     ) -> Page[_TModelInstance]:
+        """Run query with pagination according to page/size and group result by a SPARQL binding.
+
+        The internal query is dynamically modified according to page (offset)/size (limit)
+        and run with SPARQLModelAdapter._query_group_by.
+        """
         grouped_paginated_query = construct_grouped_pagination_query(
             query=self._query, page=page, size=size, group_by=group_by
         )
@@ -205,6 +175,11 @@ class SPARQLModelAdapter(Generic[_TModelInstance]):
     ) -> (
         list[_TModelInstance] | dict[str, list[_TModelInstance]] | Page[_TModelInstance]
     ):
+        """Run query against endpoint and map the SPARQL query result set to a Pydantic model.
+
+        Optional pagination and/or grouping by a SPARQL binding is avaible by
+        supplying the group_by and/or page/size parameters.
+        """
         match page, size, group_by:
             case None, None, None:
                 return self._query_collect_models()
