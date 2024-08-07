@@ -18,7 +18,7 @@ from rdfproxy.utils.sparql.sparql_utils import (
     construct_grouped_count_query,
     construct_grouped_pagination_query,
     init_sparql_wrapper,
-    sparql_wrapper_query,
+    query_with_wrapper,
 )
 from rdfproxy.utils.utils import (
     get_bindings_from_query_result,
@@ -124,7 +124,7 @@ class SPARQLModelAdapter(Generic[_TModelInstance]):
 
     def _get_count(self, query: str) -> int:
         """Construct a count query from the initialized query, run it and return the count result."""
-        result = sparql_wrapper_query(query=query, sparql_wrapper=self.sparql_wrapper)
+        result = query_with_wrapper(query=query, sparql_wrapper=self.sparql_wrapper)
         return int(next(result)["cnt"])
 
     def _query_paginate_ungrouped(self, page: int, size: int) -> Page[_TModelInstance]:
@@ -169,4 +169,4 @@ class SPARQLModelAdapter(Generic[_TModelInstance]):
         if group_by is None:
             return self._query_paginate_ungrouped(page=page, size=size)
         else:
-            return self._query_paginate_grouped(page=size, size=size, group_by=group_by)
+            return self._query_paginate_grouped(page=page, size=size, group_by=group_by)

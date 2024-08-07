@@ -94,7 +94,12 @@ def init_sparql_wrapper(endpoint: str, query: str, return_format: str = JSON):
     return sparql_wrapper
 
 
-def sparql_wrapper_query(query: str, sparql_wrapper: SPARQLWrapper) -> Iterator[dict]:
+def query_with_wrapper(query: str, sparql_wrapper: SPARQLWrapper) -> Iterator[dict]:
+    """Execute a SPARQL query using a predefined sparql_wrapper object.
+
+    The query attribute of the wrapper object is temporarily overridden
+    and gets restored after query execution.
+    """
     with temporary_query_override(sparql_wrapper=sparql_wrapper):
         sparql_wrapper.setQuery(query)
         result: QueryResult = sparql_wrapper.query()
