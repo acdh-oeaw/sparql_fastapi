@@ -1,15 +1,13 @@
 """Functionality for dynamic SPARQL query modifcation."""
 
 from collections.abc import Iterator
+from contextlib import contextmanager
 import re
 from typing import Any
 
 from SPARQLWrapper import JSON, QueryResult, SPARQLWrapper
 from rdfproxy.utils.sparql.sparql_templates import ungrouped_pagination_base_query
-from rdfproxy.utils.utils import (
-    get_bindings_from_query_result,
-    temporary_query_override,
-)
+from rdfproxy.utils.utils import get_bindings_from_query_result
 
 
 def inject_subquery(query: str, subquery: str) -> str:
@@ -92,6 +90,17 @@ def init_sparql_wrapper(endpoint: str, query: str, return_format: str = JSON):
     sparql_wrapper.setReturnFormat(return_format)
 
     return sparql_wrapper
+
+
+@contextmanager
+def temporary_query_override(sparql_wrapper: SPARQLWrapper):
+    """Context manager that allows to contextually overwrite a query in a SPARQLWrapper object."""
+    _query_cache = sparql_wrapper.queryString
+
+    try:
+        yield sparql_wrapper
+    finally:
+        sparql_wrapper.setQuery(_query_cache)
 
 
 def query_with_wrapper(query: str, sparql_wrapper: SPARQLWrapper) -> Iterator[dict]:

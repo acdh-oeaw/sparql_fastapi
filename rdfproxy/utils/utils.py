@@ -1,10 +1,9 @@
 """SPARQL/FastAPI utils."""
 
 from collections.abc import Iterator, Mapping
-from contextlib import contextmanager
 from typing import cast
 
-from SPARQLWrapper import QueryResult, SPARQLWrapper
+from SPARQLWrapper import QueryResult
 from pydantic import BaseModel
 from rdfproxy.utils._types import _TModelInstance
 from toolz import valmap
@@ -72,14 +71,3 @@ def instantiate_model_from_kwargs(
         }
 
     return model(**_get_bindings(model, **kwargs))
-
-
-@contextmanager
-def temporary_query_override(sparql_wrapper: SPARQLWrapper):
-    """Context manager that allows to contextually overwrite a query in a SPARQLWrapper object."""
-    _query_cache = sparql_wrapper.queryString
-
-    try:
-        yield sparql_wrapper
-    finally:
-        sparql_wrapper.setQuery(_query_cache)

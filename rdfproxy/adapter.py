@@ -19,11 +19,11 @@ from rdfproxy.utils.sparql.sparql_utils import (
     construct_grouped_pagination_query,
     init_sparql_wrapper,
     query_with_wrapper,
+    temporary_query_override,
 )
 from rdfproxy.utils.utils import (
     get_bindings_from_query_result,
     instantiate_model_from_kwargs,
-    temporary_query_override,
 )
 
 
