@@ -46,6 +46,65 @@ class SPARQLModelAdapter(Generic[_TModelInstance]):
 
         self.sparql_wrapper = init_sparql_wrapper(endpoint, query)
 
+    @overload
+    def query(self) -> list[_TModelInstance]: ...
+
+    @overload
+    def query(
+        self,
+        *,
+        group_by: str,
+    ) -> dict[str, list[_TModelInstance]]: ...
+
+    @overload
+    def query(
+        self,
+        *,
+        page: int,
+        size: int,
+    ) -> Page[_TModelInstance]: ...
+
+    @overload
+    def query(
+        self,
+        *,
+        page: int,
+        size: int,
+        group_by: str,
+    ) -> Page[_TModelInstance]: ...
+
+    def query(
+        self,
+        *,
+        page: int | None = None,
+        size: int | None = None,
+        group_by: str | None = None,
+    ) -> (
+        list[_TModelInstance] | dict[str, list[_TModelInstance]] | Page[_TModelInstance]
+    ):
+        """Run query against endpoint and map the SPARQL query result set to a Pydantic model.
+
+        Optional pagination and/or grouping by a SPARQL binding is avaible by
+        supplying the group_by and/or page/size parameters.
+        """
+        match page, size, group_by:
+            case None, None, None:
+                return self._query_collect_models()
+            case int(), int(), None:
+                return self._query_paginate_ungrouped(page=page, size=size)
+            case None, None, str():
+                return self._query_group_by(group_by=group_by)
+            case int(), int(), str():
+                return self._query_paginate_grouped(
+                    page=page, size=size, group_by=group_by
+                )
+            case (None, int(), Any()) | (int(), None, Any()):
+                raise InterdependentParametersException(
+                    "Parameters 'page' and 'size' are mutually dependent."
+                )
+            case _:
+                raise Exception("This should never happen.")
+
     def _query_generate_model_bindings_mapping(
         self, query: str | None = None
     ) -> Iterator[tuple[_TModelInstance, dict[str, Any]]]:
@@ -138,62 +197,3 @@ class SPARQLModelAdapter(Generic[_TModelInstance]):
         pages = math.ceil(total / size)
 
         return Page(items=items, page=page, size=size, total=total, pages=pages)
-
-    @overload
-    def query(self) -> list[_TModelInstance]: ...
-
-    @overload
-    def query(
-        self,
-        *,
-        group_by: str,
-    ) -> dict[str, list[_TModelInstance]]: ...
-
-    @overload
-    def query(
-        self,
-        *,
-        page: int,
-        size: int,
-    ) -> Page[_TModelInstance]: ...
-
-    @overload
-    def query(
-        self,
-        *,
-        page: int,
-        size: int,
-        group_by: str,
-    ) -> Page[_TModelInstance]: ...
-
-    def query(
-        self,
-        *,
-        page: int | None = None,
-        size: int | None = None,
-        group_by: str | None = None,
-    ) -> (
-        list[_TModelInstance] | dict[str, list[_TModelInstance]] | Page[_TModelInstance]
-    ):
-        """Run query against endpoint and map the SPARQL query result set to a Pydantic model.
-
-        Optional pagination and/or grouping by a SPARQL binding is avaible by
-        supplying the group_by and/or page/size parameters.
-        """
-        match page, size, group_by:
-            case None, None, None:
-                return self._query_collect_models()
-            case int(), int(), None:
-                return self._query_paginate_ungrouped(page=page, size=size)
-            case None, None, str():
-                return self._query_group_by(group_by=group_by)
-            case int(), int(), str():
-                return self._query_paginate_grouped(
-                    page=page, size=size, group_by=group_by
-                )
-            case (None, int(), Any()) | (int(), None, Any()):
-                raise InterdependentParametersException(
-                    "Parameters 'page' and 'size' are mutually dependent."
-                )
-            case _:
-                raise Exception("This should never happen.")
