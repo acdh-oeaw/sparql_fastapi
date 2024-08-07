@@ -166,11 +166,54 @@ class SPARQLModelAdapter(Generic[_TModelInstance]):
 
         return Page(items=items, page=page, size=size, total=total, pages=pages)
 
-    def query_paginate(
-        self, page: int, size: int, group_by: str | None = None
-    ) -> Page[_TModelInstance]:
-        """Run query with pagination according to page and size and optional grouping."""
-        if group_by is None:
-            return self._query_paginate_ungrouped(page=page, size=size)
-        else:
-            return self._query_paginate_grouped(page=page, size=size, group_by=group_by)
+    @overload
+    def query(self) -> list[_TModelInstance]: ...
+
+    @overload
+    def query(
+        self,
+        *,
+        group_by: str,
+    ) -> dict[str, list[_TModelInstance]]: ...
+
+    @overload
+    def query(
+        self,
+        *,
+        page: int,
+        size: int,
+    ) -> Page[_TModelInstance]: ...
+
+    @overload
+    def query(
+        self,
+        *,
+        page: int,
+        size: int,
+        group_by: str,
+    ) -> Page[_TModelInstance]: ...
+
+    def query(
+        self,
+        *,
+        page: int | None = None,
+        size: int | None = None,
+        group_by: str | None = None,
+    ) -> (
+        list[_TModelInstance] | dict[str, list[_TModelInstance]] | Page[_TModelInstance]
+    ):
+        match page, size, group_by:
+            case None, None, None:
+                return self._query_collect_models()
+            case int(), int(), None:
+                return self._query_paginate_ungrouped(page=page, size=size)
+            case None, None, str():
+                return self._query_group_by(group_by=group_by)
+            case int(), int(), str():
+                return self._query_paginate_grouped(
+                    page=page, size=size, group_by=group_by
+                )
+            case None, int(), Any() | int(), None, Any():
+                raise Exception("Parameters 'page' and 'size' are mutually dependent.")
+            case _:
+                raise Exception("This should never happen.")
