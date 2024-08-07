@@ -11,6 +11,7 @@ sparqlwrapper = "^2.0.0"
 toolz = "^0.12.1"
 pydantic = "^2.8.2"
 fastapi = {extras = ["standard"], version = "^0.112.0"}
+typeguard = "^4.3.0"
 
 
 [tool.poetry.group.dev.dependencies]
