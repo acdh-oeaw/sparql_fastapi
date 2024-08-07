@@ -3,11 +3,11 @@
 from collections import defaultdict
 from collections.abc import Iterator
 import math
-import re
-from typing import Any, overload
-from typing import Generic
+from typing import Any, Generic, overload
 
-from SPARQLWrapper import JSON, QueryResult, SPARQLWrapper
+from typeguard import typechecked
+
+from SPARQLWrapper import QueryResult
 from rdfproxy.utils._exceptions import UndefinedBindingException
 from rdfproxy.utils._types import _TModelInstance
 from rdfproxy.utils.models import Page
@@ -27,6 +27,7 @@ from rdfproxy.utils.utils import (
 )
 
 
+@typechecked
 class SPARQLModelAdapter(Generic[_TModelInstance]):
     """Adapter/Mapper for QueryResult to Pydantic model conversions.
 
@@ -75,7 +76,7 @@ class SPARQLModelAdapter(Generic[_TModelInstance]):
 
         self.sparql_wrapper = init_sparql_wrapper(endpoint, query)
 
-    def _run_query(
+    def _query_generate_model_bindings_mapping(
         self, query: str | None = None
     ) -> Iterator[tuple[_TModelInstance, dict[str, Any]]]:
         """Run query, construct model instances and generate a model-bindings mapping.
@@ -99,17 +100,20 @@ class SPARQLModelAdapter(Generic[_TModelInstance]):
             model = instantiate_model_from_kwargs(self._model, **bindings)
             yield model, bindings
 
-    def query(self, query: str | None = None) -> list[_TModelInstance]:
+    def _query_collect_models(self, query: str | None = None) -> list[_TModelInstance]:
         """Run query against endpoint and collect model instances."""
-        return [model for model, _ in self._run_query(query=query)]
+        return [
+            model
+            for model, _ in self._query_generate_model_bindings_mapping(query=query)
+        ]
 
-    def query_group_by(
+    def _query_group_by(
         self, group_by: str, query: str | None = None
     ) -> dict[str, list[_TModelInstance]]:
         """Run query against endpoint and group results by a SPARQL binding."""
         group = defaultdict(list)
 
-        for model, bindings in self._run_query(query):
+        for model, bindings in self._query_generate_model_bindings_mapping(query):
             try:
                 key = bindings[group_by]
             except KeyError:
@@ -133,14 +137,14 @@ class SPARQLModelAdapter(Generic[_TModelInstance]):
         This method is intended to be part of the public SPARQLModelAdapter.query_paginate method.
 
         The internal query is dynamically modified according to page/offset and size/limit
-        and run with SPARQLModelAdapter.query.
+        and run with SPARQLModelAdapter._query_collect_models.
         """
         paginated_query = ungrouped_pagination_base_query.substitute(
             query=self._query, offset=calculate_offset(page, size), limit=size
         )
         count_query = construct_count_query(self._query)
 
-        items = self.query(query=paginated_query)
+        items = self._query_collect_models(query=paginated_query)
         total = self._get_count(count_query)
         pages = math.ceil(total / size)
 
@@ -156,7 +160,7 @@ class SPARQLModelAdapter(Generic[_TModelInstance]):
             query=self._query, group_by=group_by
         )
 
-        items = self.query_group_by(group_by=group_by, query=grouped_paginated_query)
+        items = self._query_group_by(group_by=group_by, query=grouped_paginated_query)
         total = self._get_count(grouped_count_query)
         pages = math.ceil(total / size)
 
